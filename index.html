@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Virtual Try-On (Face Aligned)</title>
+    <title>Virtual Try-On FaceMesh</title>
     <style>
         body {
             background: #111;
@@ -32,14 +32,14 @@
 </head>
 
 <body>
-    <h1>👓 Virtual Try-On (FaceMesh)</h1>
+    <h1>👓 Virtual Try-On (Face Aligned)</h1>
     <button id="startBtn">Start Camera</button><br>
     <video id="video" width="640" height="480" autoplay muted playsinline style="display:none;"></video>
     <canvas id="canvas" width="640" height="480"></canvas>
 
     <!-- Mediapipe -->
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils"></script>
 
     <script>
         const video = document.getElementById("video");
@@ -48,7 +48,7 @@
         const startBtn = document.getElementById("startBtn");
 
         const glasses = new Image();
-        glasses.src = "1.png"; // 👈 transparent PNG
+        glasses.src = "https://i.ibb.co/sb1Y1XJ/sunglasses.png"; // 👓 apni PNG
 
         let faceMesh;
 
@@ -57,21 +57,27 @@
             video.srcObject = stream;
             video.style.display = "block";
 
-            faceMesh = new FaceMesh({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}` });
+            faceMesh = new FaceMesh.FaceMesh({
+                locateFile: (file) => {
+                    return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
+                }
+            });
+
             faceMesh.setOptions({
                 maxNumFaces: 1,
                 refineLandmarks: true,
                 minDetectionConfidence: 0.5,
                 minTrackingConfidence: 0.5
             });
+
             faceMesh.onResults(onResults);
 
-            // Video loop
-            function videoFrame() {
-                faceMesh.send({ image: video });
-                requestAnimationFrame(videoFrame);
+            // Loop
+            async function detect() {
+                await faceMesh.send({ image: video });
+                requestAnimationFrame(detect);
             }
-            videoFrame();
+            detect();
         }
 
         function onResults(results) {
@@ -80,20 +86,24 @@
 
             if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
                 const landmarks = results.multiFaceLandmarks[0];
+
+                // Eyes: 33 (left), 263 (right)
                 const leftEye = landmarks[33];
                 const rightEye = landmarks[263];
 
-                const eyeX1 = leftEye.x * canvas.width;
-                const eyeY1 = leftEye.y * canvas.height;
-                const eyeX2 = rightEye.x * canvas.width;
+                if (leftEye && rightEye) {
+                    const eyeX1 = leftEye.x * canvas.width;
+                    const eyeY1 = leftEye.y * canvas.height;
+                    const eyeX2 = rightEye.x * canvas.width;
 
-                const glassesWidth = Math.abs(eyeX2 - eyeX1) * 2.5;
-                const glassesHeight = glassesWidth / 2;
+                    const glassesWidth = Math.abs(eyeX2 - eyeX1) * 2.5;
+                    const glassesHeight = glassesWidth / 2;
 
-                const x = eyeX1 - (glassesWidth / 4);
-                const y = eyeY1 - (glassesHeight / 2);
+                    const x = eyeX1 - (glassesWidth / 4);
+                    const y = eyeY1 - (glassesHeight / 2);
 
-                ctx.drawImage(glasses, x, y, glassesWidth, glassesHeight);
+                    ctx.drawImage(glasses, x, y, glassesWidth, glassesHeight);
+                }
             }
         }
 
